@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:18.3              # Matches your inspected PG_VERSION
+    container_name: sales-db          # Matches your actual container Name
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=password123 # Matches your inspected Env
+      - POSTGRES_USER=postgres        # Default (since not explicitly in your Env)
+      - POSTGRES_DB=sales_leads           # Matches the DB name from our project flow
+    ports:
+      - "5433:5432"                   # Matches your HostPort: 5433 mapping
+    volumes:
+      - sales_db_data:/var/lib/postgresql/data
+
+volumes:
+  sales_db_data:
