@@ -1,64 +1,75 @@
 # Lead Intelligence & Revenue Optimization Engine
 ![Lead Intelligence Dashboard](dashboard.png)
+
 ### 📊 Project Overview
-This end-to-end data pipeline was built to solve a common business problem: Lead Noise. By integrating a PostgreSQL database with a custom Python scoring engine and Power BI, this system identifies high-value "Gold" leads that drive the majority of business revenue.
+A retailer's sales log treats every transaction the same, so the team can't see where the revenue really comes from. This end-to-end pipeline cleans the data, loads it into PostgreSQL, scores every transaction with a Python rules engine, and visualises the result in Power BI, so the team knows which activity to prioritise.
 
-### 🚀 Key Performance Indicators (The Result)
-* Total Market Value: $1.46M
+**Dataset:** 12,575 retail transactions (Jan 2022 – Jan 2025) from 25 customers across 8 categories (patisserie, milk products, butchers, beverages, food, furniture, household electricals, computers), split roughly evenly between online and in-store.
 
-* High-Value Density: 39.4% (The "Gold" segment)
+### 🚀 Key Results
+| Tier | Transactions | Share of transactions | Revenue | Share of revenue | Avg. spend |
+|---|---|---|---|---|---|
+| Gold | 4,045 | 33.8% | $963.9K | 62.1% | $238 |
+| Silver | 2,207 | 18.4% | $252.5K | 16.3% | $114 |
+| Bronze | 5,719 | 47.8% | $335.7K | 21.6% | $59 |
+| **Total** | **11,971** | | **$1.55M** | | $130 |
 
-* Revenue Capture Rate: 66.0%
+**The finding:** about a third of transactions (Gold) drive about 62% of revenue. A team that focuses on Gold-type purchases covers most of the revenue while spending far less effort on the low-value half.
 
-* Efficiency Gain: Identified 60.6% of leads as "low-priority," allowing sales teams to focus on the top 39% of the database while retaining 66% of potential revenue.
+### 🛠️ Tech Stack
+* **Database:** PostgreSQL 18.3, run with Docker (`docker-compose.yml`)
+* **ETL and scoring:** Python 3 (Pandas, SQLAlchemy, Psycopg2)
+* **Visualisation:** Power BI Desktop
 
-### 🛠️ The Tech Stack
-* Database: PostgreSQL 18.3 (Deployed via Docker)
+### 🧠 Methodology
+**1. Cleaning (`cleaner.py`), 12,575 → 11,971 rows**
+* Standardised column names and parsed dates
+* Rebuilt missing `Price_Per_Unit` or `Total_Spent` from the other two values (price × quantity = total)
+* Dropped rows still missing an ID, customer or total spend
+* Filled missing item and category names; treated a missing discount flag as "no discount"
 
-* Orchestration & ETL: Python 3.x
+**2. Loading (`database_loader.py`):** writes the clean data to a `leads` table in PostgreSQL.
 
-* Libraries: Pandas, SQLAlchemy, Psycopg2
+**3. Scoring (`enricher.py`):** each transaction gets a rule-based score out of 100:
 
-* Visualization: Power BI Desktop
+| Rule | Points |
+|---|---|
+| Total spend above the average transaction ($129.65) | +50 |
+| More than 5 items | +30 |
+| Paid full price (no discount applied) | +20 |
 
-* Design Philosophy: Minimalist Executive Reporting
+Tiers: **Gold** = above 70 · **Silver** = 31–70 · **Bronze** = 0–30. Results are saved to an `enriched_leads` table.
 
-### 🧠 Methodology: The Scoring Engine
-The core of this project is a Python-based **Lead Segmenter** that ranks leads based on a weighted average of their total spend and purchase frequency relative to the population mean.
+**4. Export (`exporter.py`):** exports every scored transaction to `data/final_gold_leads.csv` for Power BI.
 
-The scoring logic follows:
-$$Score = (w_1 \cdot \text{Normalized Spend}) + (w_2 \cdot \text{Normalized Quantity})$$
-
-**Leads are tiered into three segments:**
-* **Gold:** Top ~40% of scorers (The Revenue Drivers).
-* **Silver:** Mid-tier consistent performers.
-* **Bronze:** High-volume, low-value leads.
-
+### ⚠️ Limitations and Next Steps
+* **Transactions, not customers.** Each row is a purchase, and there are only 25 customers. The next version would aggregate to customer level (recency, frequency and spend) so the output is a true list of customers to prioritise.
+* **Hand-set weights.** The 50 / 30 / 20 points are judgement calls. A better approach would learn weights from outcomes, for example which customers bought again.
+* **Missing discount data.** 4,199 raw rows (about a third) had no discount flag and were treated as full price, which may overstate their scores.
+* **Bug fixed (v2):** in the first version, transactions scoring 0 fell outside the tier bands and were left untiered, so 1,700 transactions (14%, $94.5K) were missing from the totals. v1 reported $1.46M total revenue, a 39.4% Gold share and 66% revenue capture; the figures above include every transaction.
 
 ### 📂 Project Structure
 ```bash
 .
-├── data/               # Enriched CSV exports for Power BI
+├── data/
+│   ├── raw_leads.csv           # Original transactions
+│   ├── cleaned_leads.csv       # Output of cleaner.py
+│   └── final_gold_leads.csv    # All scored transactions, for Power BI
 ├── scripts/
-│   ├── db_setup.py     # Database schema and initialization
-│   ├── segmenter.py    # The Python Scoring Engine logic
-│   ├── exporter.py     # SQL to CSV pipeline
-│   └── config.py.example # Template for DB credentials
-├── docker-compose.yml  # Infrastructure as Code (Postgres 18)
-├── .gitignore          # Keeps secrets (config.py) out of GitHub
-└── README.md           # Project Documentation
+│   ├── cleaner.py              # Cleaning and imputation
+│   ├── database_loader.py      # Loads clean data into PostgreSQL
+│   ├── enricher.py             # Rule-based scoring and tiers
+│   ├── exporter.py             # PostgreSQL to CSV
+│   └── config.py.example       # Template for DB credentials
+├── docker-compose.yml          # PostgreSQL 18 in Docker
+├── dashboard.png
+└── README.md
 ```
 
-### 💡 Business Impact
-Instead of a "spray and pray" sales approach, this engine provides an Actionable Target List. The final dashboard includes a "Priority Score" visual that highlights the specific Transaction IDs (TXN) that the sales team should contact immediately, maximizing ROI per hour spent on outreach.
-
-### 🛠️ How to Reproduce
-1. Clone the Repo: git clone https://github.com/Jows1/lead-intelligence-engine.git
-
-2. Configure: Rename config.py.example to config.py and add your credentials.
-
-3. Spin up the DB: docker-compose up -d (Runs on Localhost:5433)
-
-4. Run the Pipeline: python scripts/segmenter.py
-
-5. Visualize: Import the generated CSVs into Power BI.
+### 🔁 How to Reproduce
+1. Clone: `git clone https://github.com/Jows1/lead-intelligence-engine.git`
+2. Configure: copy `scripts/config.py.example` to `scripts/config.py` and add your credentials
+3. Start the database: `docker-compose up -d` (PostgreSQL on localhost:5433)
+4. Run the pipeline in order, from the project root:
+   `python scripts/cleaner.py` → `python scripts/database_loader.py` → `python scripts/enricher.py` → `python scripts/exporter.py`
+5. Import `data/final_gold_leads.csv` into Power BI
