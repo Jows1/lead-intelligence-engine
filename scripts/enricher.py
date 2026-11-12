@@ -13,11 +13,12 @@ class LeadEnricher:
         return pd.read_sql(query, self.engine)
 
     def score_leads(self, df):
-        print("🤖 Running AI Scoring Logic...")
+        print("Running rule-based scoring...")
         
-        # We define a 'High Value' lead as someone who:
-        # 1. Spent more than the average
-        # 2. Bought more than 5 items
+        # Rule-based score out of 100. A transaction earns points for:
+        # 1. Spending more than the average transaction (+50)
+        # 2. Buying more than 5 items (+30)
+        # 3. Paying full price, i.e. no discount applied (+20)
         avg_spend = df['Total_Spent'].mean()
         
         def calculate_priority(row):
@@ -32,13 +33,14 @@ class LeadEnricher:
         # Categorize them
         df['Lead_Tier'] = pd.cut(df['Priority_Score'], 
                                 bins=[0, 30, 70, 100], 
-                                labels=['Bronze', 'Silver', 'Gold'])
+                                labels=['Bronze', 'Silver', 'Gold'],
+                                include_lowest=True)  # score 0 counts as Bronze (it was dropped before)
         return df
 
     def update_database(self, df):
         # Save the enriched data back to a NEW table called 'enriched_leads'
         df.to_sql('enriched_leads', con=self.engine, if_exists='replace', index=False)
-        print(f"✅ Enrichment complete! High-Value leads identified.")
+        print(f"✅ Scoring complete: {len(df)} transactions tiered into Gold / Silver / Bronze.")
 
 if __name__ == "__main__":
     enricher = LeadEnricher(DB_SETTINGS)

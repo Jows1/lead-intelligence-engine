@@ -1,0 +1,13 @@
+# Copy this file to config.py and fill in your own credentials.
+# config.py is listed in .gitignore so real credentials never reach GitHub.
+
+DB_SETTINGS = {
+    "user": "postgres",
+    "password": "your_password_here",
+    "host": "localhost",
+    "port": 5433,
+    "database": "sales_leads"
+}
+
+RAW_DATA_PATH = "data/raw_leads.csv"
+CLEAN_DATA_PATH = "data/cleaned_leads.csv"

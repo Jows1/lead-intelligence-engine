@@ -9,7 +9,7 @@ class LeadExporter:
         self.engine = create_engine(self.db_url)
 
     def extract_high_value_leads(self):
-        print("📤 Connecting to database to extract Gold Tier leads...")
+        print("📤 Exporting all scored transactions (every tier) for Power BI...")
         
         # We use double quotes here to match the case-sensitive columns in Postgres
         query = 'SELECT * FROM enriched_leads'
@@ -19,12 +19,12 @@ class LeadExporter:
 
     def save_to_csv(self, df, output_path):
         if df.empty:
-            print("⚠️ No Gold leads found to export.")
+            print("⚠️ No scored transactions found to export.")
             return
         
         # Exporting without the index for a cleaner look in Excel/Sheets
         df.to_csv(output_path, index=False)
-        print(f"✅ Export Success! {len(df)} High-Value leads saved to: {output_path}")
+        print(f"✅ Export Success! {len(df)} scored transactions saved to: {output_path}")
 
 if __name__ == "__main__":
     exporter = LeadExporter(DB_SETTINGS)
